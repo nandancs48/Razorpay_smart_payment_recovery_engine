@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Razorpay Secure Checkout</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Official Razorpay Standard Checkout SDK -->
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .tab-btn.active {
+            border-color: #0c66e4;
+            background-color: #eff6ff;
+            color: #1d4ed8;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex items-center justify-center p-3 sm:p-6 selection:bg-blue-500/20">
+
+    <div class="w-full max-w-lg bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden">
+        
+        <!-- Header Banner -->
+        <div class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
+                    <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24">
+                        <path d="M22.43 0l-12.01 14.28h6.29l5.72-14.28zm-10.43 12.38l-4.14 4.93h4.94l3.19-4.93h-3.99zm-4.72 5.62l-4.28 6h5.05l3.24-6h-4.01z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-base font-bold text-slate-900 flex items-center gap-1.5">
+                        Razorpay Checkout
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 uppercase">Test Mode</span>
+                    </h1>
+                    <p class="text-xs text-slate-500">Autonomous Revenue Recovery</p>
+                </div>
+            </div>
+            <span class="text-xs font-semibold px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                <i data-lucide="shield-check" class="w-3.5 h-3.5"></i> Safe
+            </span>
+        </div>
+
+        <!-- Safe Sandbox Alert -->
+        <div class="bg-amber-50/80 border-b border-amber-200/80 px-6 py-2.5 text-xs text-amber-900 flex items-center gap-2">
+            <i data-lucide="info" class="w-4 h-4 text-amber-600 flex-shrink-0"></i>
+            <span><strong>Test Mode Active:</strong> Razorpay Sandbox simulation. Your account will not be charged.</span>
+        </div>
+
+        <!-- Dynamic Container -->
+        <div id="checkoutContent" class="p-6 space-y-5">
+            <div class="flex flex-col items-center justify-center py-12 space-y-3">
+                <div class="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                <span class="text-xs text-slate-500 font-medium">Loading checkout details...</span>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="bg-slate-50 px-6 py-3 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
+            <span class="flex items-center gap-1.5">
+                <i data-lucide="lock" class="w-3.5 h-3.5 text-emerald-600"></i> Razorpay 256-Bit Test SSL
+            </span>
+            <a href="/" class="text-blue-600 hover:text-blue-700 font-medium hover:underline flex items-center gap-1">
+                Back to Dashboard <i data-lucide="arrow-up-right" class="w-3.5 h-3.5"></i>
+            </a>
+        </div>
+    </div>
+
+    <!-- OTP Verification Modal (Simulates Razorpay 3D-Secure) -->
+    <div id="otpModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-white border border-slate-200 rounded-2xl w-full max-w-sm p-6 space-y-4 shadow-2xl text-center">
+            <div class="w-12 h-12 rounded-full bg-blue-50 text-blue-600 mx-auto flex items-center justify-center border border-blue-100">
+                <i data-lucide="key-round" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <h3 class="text-base font-bold text-slate-900">3D Secure Authorization</h3>
+                <p class="text-xs text-slate-500 mt-1">Enter test OTP sent to registered mobile</p>
+            </div>
+            <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <div class="text-xs text-slate-500 mb-1">Test OTP Preset</div>
+                <input type="text" id="otpInput" value="123456" class="w-full text-center text-xl font-bold tracking-widest py-2 rounded-lg bg-white border border-slate-300 text-slate-900 font-mono focus:outline-none focus:border-blue-500">
+            </div>
+            <div class="flex gap-2 pt-1">
+                <button onclick="closeOtpModal()" class="flex-1 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold">Cancel</button>
+                <button onclick="confirmOtpPayment()" id="confirmOtpBtn" class="flex-1 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-600/20">Submit OTP</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const pathParts = window.location.pathname.split('/');
+        const orderId = pathParts[pathParts.length - 1];
+        let currentPayment = null;
+        let selectedPaymentMethod = 'qr';
+
+        async function loadOrder() {
+            try {
+                const res = await fetch(`/api/transactions/${orderId}/audit`);
+                if (!res.ok) throw new Error('Order not found');
+                const data = await res.json();
+                currentPayment = data.payment;
+                renderCheckout(data.payment);
+            } catch (err) {
+                document.getElementById('checkoutContent').innerHTML = `
+                    <div class="text-center py-8 space-y-3">
+                        <div class="w-12 h-12 rounded-full bg-rose-50 text-rose-600 mx-auto flex items-center justify-center border border-rose-100">
+                            <i data-lucide="alert-circle" class="w-6 h-6"></i>
+                        </div>
+                        <h3 class="text-base font-bold text-slate-900">Payment Order Not Found</h3>
+                        <p class="text-xs text-slate-500">Order ID <code>${orderId}</code> could not be located.</p>
+                        <a href="/" class="inline-block mt-3 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-semibold text-white">Back to Dashboard</a>
+                    </div>
+                `;
+                lucide.createIcons();
+            }
+        }
+
+        function renderCheckout(p) {
+            const container = document.getElementById('checkoutContent');
+
+            if (p.status === 'recovered') {
+                container.innerHTML = `
+                    <div class="text-center py-6 space-y-4">
+                        <div class="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 mx-auto flex items-center justify-center border-4 border-emerald-50">
+                            <i data-lucide="check" class="w-8 h-8 stroke-[3]"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-900">Payment Successful!</h2>
+                            <p class="text-xs text-slate-500 mt-1">Order <span class="font-mono font-semibold text-slate-800">${p.order_id}</span> has been recovered.</p>
+                        </div>
+                        <div class="bg-slate-50 rounded-xl p-4 border border-slate-200 text-left text-xs space-y-2">
+                            <div class="flex justify-between"><span class="text-slate-500">Amount Paid:</span> <span class="font-bold text-slate-900 font-mono text-sm">₹${Number(p.amount).toLocaleString('en-IN')}</span></div>
+                            <div class="flex justify-between"><span class="text-slate-500">Customer:</span> <span class="text-slate-800 font-semibold">${p.customer_name}</span></div>
+                            <div class="flex justify-between"><span class="text-slate-500">Payment ID:</span> <span class="font-mono text-emerald-700 font-semibold">${p.payment_id || 'pay_test_verified'}</span></div>
+                            <div class="flex justify-between"><span class="text-slate-500">Status:</span> <span class="font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">RECOVERED</span></div>
+                            <div class="flex justify-between"><span class="text-slate-500">Timestamp:</span> <span class="font-mono text-slate-600">${p.recovered_at || new Date().toISOString()}</span></div>
+                        </div>
+                        <div class="pt-2">
+                            <a href="/" class="inline-flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition">
+                                <i data-lucide="layout-dashboard" class="w-4 h-4"></i> View in Agent Dashboard
+                            </a>
+                        </div>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            container.innerHTML = `
+                <!-- Order Summary Card -->
+                <div class="bg-slate-50 border border-slate-300 rounded-xl p-4 space-y-2">
+                    <div class="flex justify-between items-center pb-2 border-b border-slate-200">
+                        <div>
+                            <span class="text-xs uppercase font-extrabold text-slate-700 tracking-wider">Order ID</span>
+                            <div class="font-mono text-sm font-black text-slate-950">${p.order_id}</div>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-xs uppercase font-extrabold text-slate-700 tracking-wider">Amount to Pay</span>
+                            <div class="text-2xl font-black text-blue-700 font-mono">₹${Number(p.amount).toLocaleString('en-IN')}</div>
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center text-xs pt-0.5 text-slate-700 font-medium">
+                        <span>Billed to: <strong class="text-slate-950 font-black">${p.customer_name}</strong> (${p.customer_phone || '+91 98201 23456'})</span>
+                        <span class="text-xs bg-amber-100 text-amber-950 font-extrabold px-2.5 py-1 rounded border border-amber-300">Cart Saved</span>
+                    </div>
+                </div>
+
+                <!-- Primary Action: Official Razorpay Popup Modal -->
+                <div class="p-3.5 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-300 rounded-xl space-y-2.5">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-black text-blue-950 flex items-center gap-1.5">
+                            <i data-lucide="sparkles" class="w-4 h-4 text-blue-700"></i> Official Razorpay Modal Checkout
+                        </span>
+                        <span class="text-xs bg-blue-200 text-blue-950 font-black px-2 py-0.5 rounded font-mono border border-blue-300">checkout.js</span>
+                    </div>
+                    <button onclick="launchOfficialRazorpayModal()" id="officialModalBtn" class="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black shadow-md shadow-blue-600/20 flex items-center justify-center gap-2 transition active:scale-[0.99]">
+                        <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                            <path d="M22.43 0l-12.01 14.28h6.29l5.72-14.28zm-10.43 12.38l-4.14 4.93h4.94l3.19-4.93h-3.99zm-4.72 5.62l-4.28 6h5.05l3.24-6h-4.01z"/>
+                        </svg>
+                        <span>Open Official Razorpay Popup (QR / Card / UPI)</span>
+                    </button>
+                    <p class="text-xs text-slate-700 font-medium text-center">Opens Razorpay's standard merchant popup with live UPI QR and test card simulation.</p>
+                </div>
+
+                <!-- Interactive In-Page Payment Options -->
+                <div class="space-y-3 pt-1">
+                    <div class="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center justify-between">
+                        <span>Or Pay Directly On This Page:</span>
+                        <span class="text-xs text-slate-600 font-bold">Select payment mode</span>
+                    </div>
+
+                    <!-- Payment Mode Tabs -->
+                    <div class="grid grid-cols-3 gap-2">
+                        <button onclick="switchPaymentMode('qr')" id="tab-qr" class="tab-btn active p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition">
+                            <i data-lucide="qr-code" class="w-4 h-4"></i>
+                            <span>UPI & QR</span>
+                        </button>
+                        <button onclick="switchPaymentMode('card')" id="tab-card" class="tab-btn p-2.5 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs font-bold flex flex-col items-center gap-1 transition">
+                            <i data-lucide="credit-card" class="w-4 h-4"></i>
+                            <span>Card</span>
+                        </button>
+                        <button onclick="switchPaymentMode('netbanking')" id="tab-netbanking" class="tab-btn p-2.5 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs font-bold flex flex-col items-center gap-1 transition">
+                            <i data-lucide="landmark" class="w-4 h-4"></i>
+                            <span>NetBanking</span>
+                        </button>
+                    </div>
+
+                    <!-- MODE 1: UPI & QR CODE VIEW -->
+                    <div id="mode-qr" class="p-4 rounded-xl border border-slate-300 bg-white space-y-3.5">
+                        <div class="flex items-center justify-center py-2">
+                            <!-- High Quality Test QR Code Visual -->
+                            <div class="p-3 bg-white rounded-xl border-2 border-slate-800 shadow-sm text-center">
+                                <svg class="w-36 h-36 mx-auto" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <!-- QR Frame -->
+                                    <rect width="100" height="100" fill="white"/>
+                                    <!-- Corners -->
+                                    <rect x="5" y="5" width="28" height="28" rx="4" fill="#0f172a"/>
+                                    <rect x="9" y="9" width="20" height="20" rx="2" fill="white"/>
+                                    <rect x="13" y="13" width="12" height="12" rx="2" fill="#0c66e4"/>
+                                    <rect x="67" y="5" width="28" height="28" rx="4" fill="#0f172a"/>
+                                    <rect x="71" y="9" width="20" height="20" rx="2" fill="white"/>
+                                    <rect x="75" y="13" width="12" height="12" rx="2" fill="#0c66e4"/>
+                                    <rect x="5" y="67" width="28" height="28" rx="4" fill="#0f172a"/>
+                                    <rect x="9" y="71" width="20" height="20" rx="2" fill="white"/>
+                                    <rect x="13" y="75" width="12" height="12" rx="2" fill="#0c66e4"/>
+                                    <!-- Pattern Dots -->
+                                    <rect x="38" y="8" width="8" height="8" fill="#0f172a"/>
+                                    <rect x="50" y="8" width="8" height="8" fill="#0f172a"/>
+                                    <rect x="38" y="22" width="6" height="6" fill="#0f172a"/>
+                                    <rect x="48" y="20" width="10" height="10" fill="#0f172a"/>
+                                    <rect x="10" y="38" width="8" height="8" fill="#0f172a"/>
+                                    <rect x="22" y="38" width="8" height="8" fill="#0f172a"/>
+                                    <rect x="36" y="36" width="28" height="28" rx="4" fill="#0c66e4"/>
+                                    <!-- Center RZP Icon -->
+                                    <path d="M54 44l-6 7.5h3.2l2.8-7.5zm-5.2 6.5l-2 2.5h2.5l1.6-2.5h-2.1z" fill="white"/>
+                                    <rect x="70" y="38" width="10" height="6" fill="#0f172a"/>
+                                    <rect x="84" y="38" width="8" height="8" fill="#0f172a"/>
+                                    <rect x="38" y="70" width="8" height="8" fill="#0f172a"/>
+                                    <rect x="50" y="74" width="8" height="8" fill="#0f172a"/>
+                                    <rect x="70" y="68" width="10" height="10" fill="#0f172a"/>
+                                    <rect x="84" y="72" width="8" height="8" fill="#0f172a"/>
+                                    <rect x="68" y="84" width="12" height="8" fill="#0f172a"/>
+                                </svg>
+                                <div class="text-[10px] text-slate-500 font-mono mt-1 font-semibold">Scan with GPay / PhonePe / Paytm</div>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">UPI ID / VPA</label>
+                            <input type="text" id="upiVpaInput" value="success@razorpay" class="w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-900 text-xs font-mono focus:bg-white focus:border-blue-500">
+                        </div>
+                        <button onclick="submitUpiPayment()" id="upiPayBtn" class="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 transition">
+                            <i data-lucide="check-circle" class="w-4 h-4"></i>
+                            <span>Simulate Scan & Pay ₹${Number(p.amount).toLocaleString('en-IN')} (UPI)</span>
+                        </button>
+                    </div>
+
+                    <!-- MODE 2: CARD PAYMENT VIEW -->
+                    <div id="mode-card" class="hidden p-4 rounded-xl border border-slate-200 bg-white space-y-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Card Number</label>
+                            <div class="relative">
+                                <input type="text" id="cardNumberInput" value="4111 1111 1111 1111" maxlength="19" class="w-full pl-3 pr-10 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-900 text-xs font-mono font-semibold focus:bg-white focus:border-blue-500">
+                                <span class="absolute right-3 top-2.5 text-[10px] font-bold text-blue-600">VISA TEST</span>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Expiry (MM/YY)</label>
+                                <input type="text" id="cardExpiryInput" value="12/28" class="w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-900 text-xs font-mono focus:bg-white focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">CVV</label>
+                                <input type="password" id="cardCvvInput" value="123" maxlength="4" class="w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-900 text-xs font-mono focus:bg-white focus:border-blue-500">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Cardholder Name</label>
+                            <input type="text" id="cardNameInput" value="${p.customer_name}" class="w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-900 text-xs font-medium focus:bg-white focus:border-blue-500">
+                        </div>
+                        <button onclick="openOtpModal()" id="cardPayBtn" class="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-600/20 flex items-center justify-center gap-2 transition">
+                            <i data-lucide="lock" class="w-3.5 h-3.5"></i>
+                            <span>Pay ₹${Number(p.amount).toLocaleString('en-IN')} with Card &rarr;</span>
+                        </button>
+                    </div>
+
+                    <!-- MODE 3: NETBANKING VIEW -->
+                    <div id="mode-netbanking" class="hidden p-4 rounded-xl border border-slate-200 bg-white space-y-3">
+                        <label class="block text-xs font-semibold text-slate-700">Select Popular Bank</label>
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <label class="p-2.5 rounded-lg border border-slate-200 hover:bg-slate-50 flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="bankSelect" value="HDFC" checked class="text-blue-600">
+                                <span class="font-semibold text-slate-800">HDFC Bank</span>
+                            </label>
+                            <label class="p-2.5 rounded-lg border border-slate-200 hover:bg-slate-50 flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="bankSelect" value="SBI" class="text-blue-600">
+                                <span class="font-semibold text-slate-800">State Bank of India</span>
+                            </label>
+                            <label class="p-2.5 rounded-lg border border-slate-200 hover:bg-slate-50 flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="bankSelect" value="ICICI" class="text-blue-600">
+                                <span class="font-semibold text-slate-800">ICICI Bank</span>
+                            </label>
+                            <label class="p-2.5 rounded-lg border border-slate-200 hover:bg-slate-50 flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="bankSelect" value="AXIS" class="text-blue-600">
+                                <span class="font-semibold text-slate-800">Axis Bank</span>
+                            </label>
+                        </div>
+                        <button onclick="submitNetbankingPayment()" id="nbPayBtn" class="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-600/20 flex items-center justify-center gap-2 transition">
+                            <i data-lucide="check-circle" class="w-4 h-4"></i>
+                            <span>Simulate NetBanking Login & Pay</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        function switchPaymentMode(mode) {
+            selectedPaymentMethod = mode;
+            ['qr', 'card', 'netbanking'].forEach(m => {
+                const btn = document.getElementById(`tab-${m}`);
+                const div = document.getElementById(`mode-${m}`);
+                if (m === mode) {
+                    btn.className = 'tab-btn active p-2.5 rounded-xl border text-xs font-semibold flex flex-col items-center gap-1 transition';
+                    div.classList.remove('hidden');
+                } else {
+                    btn.className = 'tab-btn p-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold flex flex-col items-center gap-1 transition';
+                    div.classList.add('hidden');
+                }
+            });
+            lucide.createIcons();
+        }
+
+        // Official Razorpay Modal Checkout Launch
+        async function launchOfficialRazorpayModal() {
+            const btn = document.getElementById('officialModalBtn');
+            btn.disabled = true;
+            btn.innerHTML = `<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Opening Razorpay Checkout...`;
+
+            try {
+                const res = await fetch(`/api/pay/${orderId}/create-order`, { method: 'POST' });
+                const orderData = await res.json();
+                
+                if (!orderData.success) throw new Error('Could not create Razorpay order');
+
+                const options = {
+                    key: orderData.key_id,
+                    amount: orderData.amount,
+                    currency: orderData.currency,
+                    name: "Razorpay Revenue Recovery",
+                    description: `Order Recovery #${orderId}`,
+                    image: "https://razorpay.com/favicon.ico",
+                    order_id: orderData.order_id,
+                    prefill: {
+                        name: orderData.customer_name,
+                        email: orderData.customer_email,
+                        contact: orderData.customer_phone
+                    },
+                    theme: {
+                        color: "#0c66e4"
+                    },
+                    handler: async function (response) {
+                        // Payment successful on Razorpay modal
+                        try {
+                            const verifyRes = await fetch(`/api/pay/${orderId}/verify-razorpay`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    razorpay_payment_id: response.razorpay_payment_id,
+                                    razorpay_order_id: response.razorpay_order_id,
+                                    razorpay_signature: response.razorpay_signature
+                                })
+                            });
+                            await loadOrder();
+                        } catch (e) {
+                            alert('Payment captured by Razorpay! Refreshing status...');
+                            await loadOrder();
+                        }
+                    },
+                    modal: {
+                        ondismiss: function () {
+                            btn.disabled = false;
+                            btn.innerHTML = `
+                                <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M22.43 0l-12.01 14.28h6.29l5.72-14.28zm-10.43 12.38l-4.14 4.93h4.94l3.19-4.93h-3.99zm-4.72 5.62l-4.28 6h5.05l3.24-6h-4.01z"/></svg>
+                                <span>Open Official Razorpay Popup (QR / Card / UPI)</span>
+                            `;
+                        }
+                    }
+                };
+
+                const rzp = new Razorpay(options);
+                rzp.on('payment.failed', function (response) {
+                    alert('Payment Failed in Razorpay: ' + response.error.description);
+                });
+                rzp.open();
+
+            } catch (err) {
+                alert('Could not open Razorpay checkout: ' + err.message);
+                btn.disabled = false;
+                btn.innerHTML = `<span>Retry Razorpay Popup</span>`;
+            }
+        }
+
+        // Simulated UPI / QR Payment
+        async function submitUpiPayment() {
+            const btn = document.getElementById('upiPayBtn');
+            btn.disabled = true;
+            btn.innerHTML = `<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Authorizing UPI Payment...`;
+
+            try {
+                const res = await fetch(`/api/pay/${orderId}/complete`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ method: 'UPI (QR Code)' })
+                });
+                await loadOrder();
+            } catch (err) {
+                alert('UPI payment failed: ' + err.message);
+                btn.disabled = false;
+                btn.innerText = 'Retry Payment';
+            }
+        }
+
+        // Simulated Card Payment with OTP Modal
+        function openOtpModal() {
+            document.getElementById('otpModal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function closeOtpModal() {
+            document.getElementById('otpModal').classList.add('hidden');
+        }
+
+        async function confirmOtpPayment() {
+            const btn = document.getElementById('confirmOtpBtn');
+            btn.disabled = true;
+            btn.innerHTML = `<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto"></div>`;
+
+            try {
+                const res = await fetch(`/api/pay/${orderId}/complete`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ method: 'Card (Visa 4111)' })
+                });
+                closeOtpModal();
+                await loadOrder();
+            } catch (err) {
+                alert('Card authorization failed: ' + err.message);
+                btn.disabled = false;
+                btn.innerText = 'Submit OTP';
+            }
+        }
+
+        // Simulated Netbanking Payment
+        async function submitNetbankingPayment() {
+            const btn = document.getElementById('nbPayBtn');
+            const selectedBank = document.querySelector('input[name="bankSelect"]:checked')?.value || 'HDFC';
+            btn.disabled = true;
+            btn.innerHTML = `<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Connecting to ${selectedBank}...`;
+
+            try {
+                const res = await fetch(`/api/pay/${orderId}/complete`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ method: `NetBanking (${selectedBank})` })
+                });
+                await loadOrder();
+            } catch (err) {
+                alert('Netbanking failed: ' + err.message);
+                btn.disabled = false;
+                btn.innerText = 'Simulate NetBanking Login & Pay';
+            }
+        }
+
+        loadOrder();
+    </script>
+</body>
+</html>
