@@ -136,8 +136,8 @@ Before setting up the project, ensure you have:
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/<your-username>/<your-repo-name>.git
-cd <your-repo-name>
+git clone https://github.com/nandancs48/Razorpay_smart_payment_recovery_engine.git
+cd Razorpay_smart_payment_recovery_engine
 ```
 
 ### 2. Create and Activate a Virtual Environment
